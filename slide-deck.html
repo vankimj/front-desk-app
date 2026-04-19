@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slide Deck</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f0f0f0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#deck-app {
+  position: relative;
+  width: 100%;
+  max-width: 700px;
+  min-height: 560px;
+  border: 1px solid #e0e0e0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #f5f5f5;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+.deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 18px;
+  border-bottom: 1px solid #e8e8e8;
+  background: #fff;
+}
+.deck-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-top: 1px solid #e8e8e8;
+  background: #fff;
+}
+button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  padding: 6px 14px;
+  color: #333;
+  transition: background 0.15s, border-color 0.15s;
+}
+button:hover { background: #f5f5f5; border-color: #bbb; }
+button:active { background: #ebebeb; transform: scale(0.98); }
+button:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.btn-circle {
+  width: 34px; height: 34px;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: flex; align-items: center; justify-content: center;
+}
+#deck-actions {
+  display: flex; gap: 6px;
+  opacity: 0;
+  transform: translateY(5px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+#deck-actions.visible {
+  opacity: 1; transform: translateY(0) scale(1); pointer-events: auto;
+}
+.action-btn { font-size: 12px !important; padding: 0 10px !important; height: 30px !important; }
+#deck-slider { overflow: hidden; height: 440px; cursor: grab; user-select: none; }
+#deck-slider:active { cursor: grabbing; }
+#deck-track { display: flex; height: 100%; transition: transform 0.42s cubic-bezier(0.25,0.46,0.45,0.94); will-change: transform; }
+
+.slide-wrap { min-width: 100%; height: 100%; display: flex; padding: 11px; gap: 9px; }
+
+.slide-left {
+  flex: 1; display: flex; flex-direction: column;
+  border-radius: 10px; border: 1px solid #e0e0e0;
+  overflow: hidden; background: #efefef;
+}
+.slide-photo {
+  flex: 1; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.slide-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.default-badge {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(245,158,11,0.92); color: white;
+  font-size: 9px; font-weight: 600; padding: 2px 7px;
+  border-radius: 20px; letter-spacing: 0.04em;
+}
+.nameplate {
+  height: 56px; background: #fff; border-top: 1px solid #e8e8e8;
+  display: flex; align-items: center; justify-content: center; padding: 0 14px;
+}
+.nameplate-name {
+  font-family: Georgia, 'Palatino Linotype', Palatino, serif;
+  font-size: 15px; font-weight: normal; letter-spacing: 0.025em;
+  color: #1a1a1a; text-align: center; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.nameplate-empty {
+  font-family: Georgia, 'Palatino Linotype', Palatino, serif;
+  font-size: 12px; color: #ccc; font-style: italic;
+}
+
+.slide-right {
+  flex: 1; background: #fff; border-radius: 10px; border: 1px solid #e0e0e0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 12px 12px 30px; position: relative; overflow: hidden;
+}
+.slide-right.tappable { cursor: pointer; }
+.slide-right.tappable:active { background: #fafafa; }
+
+.qr-view { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.qr-view.hidden { display: none; }
+
+.tap-hint { position: absolute; top: 8px; right: 10px; font-size: 9px; color: #bbb; }
+.qr-dots { position: absolute; bottom: 10px; display: flex; gap: 5px; align-items: center; }
+.qr-dot { width: 6px; height: 6px; border-radius: 50%; transition: background 0.2s; }
+.qr-url-text { font-size: 9px; color: #aaa; text-align: center; word-break: break-all; max-width: 90%; line-height: 1.4; }
+
+#deck-dots { display: flex; gap: 6px; align-items: flex-start; padding-top: 2px; }
+.dot-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.dot-bar { height: 6px; border-radius: 3px; transition: width 0.25s, background 0.25s; }
+.dot-star { width: 4px; height: 4px; border-radius: 50%; transition: background 0.2s; }
+
+.empty-state {
+  min-width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+}
+
+#deck-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.38);
+  display: none; align-items: flex-end;
+}
+#deck-modal {
+  width: 100%; background: #fff;
+  border-top: 1px solid #e8e8e8;
+  padding: 18px 18px 24px;
+  max-height: 88%; overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);
+}
+.form-label { font-size: 11px; color: #888; display: block; margin-bottom: 5px; }
+.label-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+input[type="text"], input[type="url"] {
+  font-family: inherit; width: 100%;
+  border: 1px solid #d8d8d8; border-radius: 8px;
+  padding: 8px 12px; font-size: 13px; color: #333; outline: none;
+  background: #fafafa; transition: border-color 0.2s;
+}
+input:focus { border-color: #3D95CE; background: #fff; }
+#upload-area {
+  height: 90px; border: 1px dashed #ccc; border-radius: 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; cursor: pointer; overflow: hidden; position: relative;
+  background: #fafafa; transition: border-color 0.2s;
+}
+#upload-area:hover { border-color: #3D95CE; }
+.modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+.btn-primary { background: #3D95CE !important; color: #fff !important; border-color: #3D95CE !important; }
+.btn-primary:hover { background: #2f7db0 !important; }
+</style>
+</head>
+<body>
+<div id="deck-app">
+
+  <div class="deck-header">
+    <div style="width:60px"></div>
+    <div id="deck-dots"></div>
+    <span id="deck-counter" style="font-size:11px;font-weight:500;color:#888;min-width:60px;text-align:right">—</span>
+  </div>
+
+  <div id="deck-slider">
+    <div id="deck-track"></div>
+  </div>
+
+  <div class="deck-nav">
+    <button id="deck-prev" class="btn-circle" onclick="DN(-1)">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8.5 1.5l-4 5 4 5"/></svg>
+    </button>
+    <div id="deck-actions">
+      <button class="action-btn" onclick="DD()">&#128465; Delete</button>
+      <button class="action-btn" onclick="DM()">+ Add</button>
+      <button id="btn-default" class="action-btn" onclick="DSF()">&#9733; Default</button>
+    </div>
+    <button id="deck-next" class="btn-circle" onclick="DN(1)">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 1.5l4 5-4 5"/></svg>
+    </button>
+  </div>
+
+  <div id="deck-overlay" onclick="OVC(event)">
+    <div id="deck-modal">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <span style="font-size:15px;font-weight:600">New slide</span>
+        <button class="btn-circle" onclick="DX()" style="font-size:17px">&#215;</button>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Person's name</label>
+        <input type="text" id="f-name" placeholder="e.g. Jane Smith" style="font-family:Georgia,serif">
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label">Headshot</label>
+        <div id="upload-area" onclick="document.getElementById('f-file').click()">
+          <div id="upload-ph" style="display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+            <span style="font-size:11px;color:#bbb">Click to upload photo</span>
+          </div>
+        </div>
+        <input type="file" id="f-file" accept="image/*" style="display:none" onchange="FI(event)">
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="form-label"><span class="label-dot" style="background:#3D95CE"></span>Venmo URL</label>
+        <input type="url" id="f-venmo" placeholder="https://venmo.com/u/username">
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="form-label"><span class="label-dot" style="background:#E1306C"></span>Instagram URL</label>
+        <input type="url" id="f-ig" placeholder="https://instagram.com/username">
+      </div>
+
+      <div class="modal-actions">
+        <button onclick="DX()" style="flex:1">Cancel</button>
+        <button onclick="AS()" class="btn-primary" style="flex:2">Add slide &#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const QS = 148;
+
+  const VENMO_SVG = `<svg viewBox="0 0 148 44" xmlns="http://www.w3.org/2000/svg" width="148" height="44">
+    <rect width="148" height="44" rx="8" fill="#3D95CE"/>
+    <text x="74" y="30" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-size="24" font-weight="700" fill="white">Venmo</text>
+  </svg>`;
+
+  const IG_SVG = `<svg viewBox="0 0 148 44" xmlns="http://www.w3.org/2000/svg" width="148" height="44">
+    <rect width="148" height="44" rx="8" fill="#E1306C"/>
+    <rect x="8" y="10" width="24" height="24" rx="6" fill="none" stroke="white" stroke-width="2.2"/>
+    <circle cx="20" cy="22" r="6.2" fill="none" stroke="white" stroke-width="2.2"/>
+    <circle cx="28.5" cy="13.5" r="2.5" fill="white"/>
+    <text x="95" y="30" text-anchor="middle" font-family="-apple-system,system-ui,sans-serif" font-size="19" font-weight="700" fill="white">Instagram</text>
+  </svg>`;
+
+  function phSVG(c) {
+    const s = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect width="300" height="400" fill="${c}"/><circle cx="150" cy="140" r="60" fill="rgba(255,255,255,.15)"/><ellipse cx="150" cy="320" rx="100" ry="70" fill="rgba(255,255,255,.1)"/></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  }
+
+  let slides = [], cur = 0, defSlide = 0, pendImg = null;
+  let actVis = false, hideT = null, inactT = null;
+
+  function resetInact() {
+    clearTimeout(inactT);
+    if (!slides.length) return;
+    inactT = setTimeout(() => {
+      const t = Math.min(defSlide, slides.length - 1);
+      if (cur !== t) { cur = t; document.getElementById('deck-track').style.transform = `translateX(-${cur * 100}%)`; updateUI(); }
+    }, 60000);
+  }
+  ['mousemove','mousedown','touchstart','keydown','click'].forEach(ev =>
+    document.addEventListener(ev, resetInact, { passive: true })
+  );
+
+  function showAct() { actVis = true; document.getElementById('deck-actions').classList.add('visible'); clearTimeout(hideT); hideT = setTimeout(hideAct, 3500); }
+  function hideAct() { actVis = false; document.getElementById('deck-actions').classList.remove('visible'); }
+  function togAct() { actVis ? hideAct() : showAct(); }
+
+  window.toggleQR = function (i) {
+    const vv = document.getElementById('vv' + i);
+    const iv = document.getElementById('iv' + i);
+    const d0 = document.getElementById('qd0' + i);
+    const d1 = document.getElementById('qd1' + i);
+    if (!vv || !iv) return;
+    const wasV = !vv.classList.contains('hidden');
+    vv.classList.toggle('hidden', wasV);
+    iv.classList.toggle('hidden', !wasV);
+    if (d0) d0.style.background = wasV ? '#ccc' : '#333';
+    if (d1) d1.style.background = wasV ? '#333' : '#ccc';
+    resetInact();
+  };
+
+  function buildSlide(sl, i) {
+    const isDefault = i === defSlide;
+    const hasV = !!(sl.vu && sl.vu.trim());
+    const hasI = !!(sl.iu && sl.iu.trim());
+    const hasBoth = hasV && hasI;
+    const hasName = !!(sl.name && sl.name.trim());
+
+    const photo = sl.img
+      ? `<img src="${sl.img}" alt="headshot">`
+      : `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:#ccc">
+           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+           <span style="font-size:11px">No photo</span>
+         </div>`;
+
+    const vView = hasV ? `<div id="vv${i}" class="qr-view">
+      ${VENMO_SVG}
+      <div id="qv${i}" style="width:${QS}px;height:${QS}px;display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div class="qr-url-text">${sl.vu}</div>
+    </div>` : '';
+
+    const iView = hasI ? `<div id="iv${i}" class="qr-view${hasV ? ' hidden' : ''}">
+      ${IG_SVG}
+      <div id="qi${i}" style="width:${QS}px;height:${QS}px;display:flex;align-items:center;justify-content:center;flex-shrink:0"></div>
+      <div class="qr-url-text">${sl.iu}</div>
+    </div>` : '';
+
+    const dots = hasBoth ? `<div class="qr-dots">
+      <div id="qd0${i}" class="qr-dot" style="background:#333"></div>
+      <div id="qd1${i}" class="qr-dot" style="background:#ccc"></div>
+    </div>` : '';
+
+    const hint = hasBoth ? `<div class="tap-hint">tap to switch</div>` : '';
+    const tapAttr = hasBoth ? `onclick="toggleQR(${i})"` : '';
+    const tapCls = hasBoth ? 'slide-right tappable' : 'slide-right';
+
+    return `<div class="slide-wrap">
+      <div class="slide-left">
+        <div class="slide-photo">
+          ${photo}
+          ${isDefault ? `<div class="default-badge">DEFAULT</div>` : ''}
+        </div>
+        <div class="nameplate">
+          ${hasName ? `<span class="nameplate-name">${sl.name}</span>` : `<span class="nameplate-empty">No name</span>`}
+        </div>
+      </div>
+      <div class="${tapCls}" ${tapAttr}>
+        ${hint}
+        ${vView}
+        ${iView}
+        ${dots}
+      </div>
+    </div>`;
+  }
+
+  function renderAll() {
+    const track = document.getElementById('deck-track');
+    if (!slides.length) {
+      track.innerHTML = `<div class="empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="1.3" stroke-linecap="round"><circle cx="12" cy="9" r="5"/><path d="M3 21c0-5 4-9 9-9s9 4 9 9"/></svg>
+        <div style="font-size:14px;font-weight:500;color:#aaa">No slides yet</div>
+        <div style="font-size:12px;color:#ccc">Swipe up or down to add one</div>
+      </div>`;
+      updateUI(); return;
+    }
+    track.innerHTML = slides.map(buildSlide).join('');
+    track.style.transform = `translateX(-${cur * 100}%)`;
+    updateUI();
+    setTimeout(() => {
+      slides.forEach((sl, i) => {
+        if (sl.vu) { const el = document.getElementById('qv' + i); if (el) try { new QRCode(el, { text: sl.vu, width: QS, height: QS, colorDark: '#1a1a1a', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M }); } catch(e) {} }
+        if (sl.iu) { const el = document.getElementById('qi' + i); if (el) try { new QRCode(el, { text: sl.iu, width: QS, height: QS, colorDark: '#1a1a1a', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M }); } catch(e) {} }
+      });
+    }, 65);
+    resetInact();
+  }
+
+  function updateUI() {
+    const n = slides.length;
+    document.getElementById('deck-counter').textContent = n ? `${cur + 1} / ${n}` : '—';
+    document.getElementById('deck-prev').disabled = cur === 0 || !n;
+    document.getElementById('deck-next').disabled = cur === n - 1 || !n;
+    document.getElementById('deck-dots').innerHTML = slides.map((_, i) => {
+      const isA = i === cur, isDef = i === defSlide;
+      return `<div class="dot-wrap">
+        <div class="dot-bar" style="width:${isA ? 18 : 6}px;background:${isA ? '#333' : '#ccc'};${isDef && !isA ? 'outline:1.5px solid #f59e0b;outline-offset:1px' : ''}"></div>
+        <div class="dot-star" style="background:${isDef ? '#f59e0b' : 'transparent'}"></div>
+      </div>`;
+    }).join('');
+    const db = document.getElementById('btn-default');
+    if (db) db.textContent = cur === defSlide ? '★ Default ✓' : '★ Default';
+  }
+
+  window.DN = function (dir) {
+    const ni = cur + dir;
+    if (ni >= 0 && ni < slides.length) { cur = ni; document.getElementById('deck-track').style.transform = `translateX(-${cur * 100}%)`; updateUI(); resetInact(); }
+  };
+  window.DD = function () {
+    if (!slides.length) return;
+    slides.splice(cur, 1);
+    if (!slides.length) { defSlide = 0; cur = 0; hideAct(); renderAll(); return; }
+    if (defSlide >= slides.length) defSlide = slides.length - 1;
+    cur = Math.min(cur, slides.length - 1);
+    hideAct(); renderAll();
+  };
+  window.DSF = function () { defSlide = cur; updateUI(); hideAct(); resetInact(); };
+
+  let sx = 0, sy = 0, pa = false;
+  const slEl = document.getElementById('deck-slider');
+  slEl.addEventListener('mousedown', e => { sx = e.clientX; sy = e.clientY; pa = true; e.preventDefault(); }, { passive: false });
+  document.addEventListener('mouseup', e => {
+    if (!pa) return; pa = false;
+    const dx = e.clientX - sx, dy = e.clientY - sy, ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ay > ax && ay > 38) togAct();
+    else if (ax > ay && ax > 48) DN(dx < 0 ? 1 : -1);
+  });
+  slEl.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; pa = true; }, { passive: true });
+  slEl.addEventListener('touchend', e => {
+    if (!pa) return; pa = false;
+    const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy, ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ay > ax && ay > 38) togAct();
+    else if (ax > ay && ax > 48) DN(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') DN(-1);
+    if (e.key === 'ArrowRight') DN(1);
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); togAct(); }
+  });
+
+  window.DM = function () {
+    pendImg = null; hideAct();
+    ['f-name','f-venmo','f-ig'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-file').value = '';
+    const ua = document.getElementById('upload-area');
+    ua.querySelectorAll('img').forEach(x => x.remove());
+    document.getElementById('upload-ph').style.display = 'flex';
+    document.getElementById('deck-overlay').style.display = 'flex';
+    requestAnimationFrame(() => requestAnimationFrame(() => { document.getElementById('deck-modal').style.transform = 'translateY(0)'; }));
+  };
+  window.DX = function () {
+    document.getElementById('deck-modal').style.transform = 'translateY(100%)';
+    setTimeout(() => { document.getElementById('deck-overlay').style.display = 'none'; }, 360);
+  };
+  window.OVC = function (e) { if (e.target === document.getElementById('deck-overlay')) DX(); };
+  window.FI = function (event) {
+    const file = event.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      pendImg = ev.target.result;
+      const ua = document.getElementById('upload-area');
+      document.getElementById('upload-ph').style.display = 'none';
+      ua.querySelectorAll('img').forEach(x => x.remove());
+      const img = document.createElement('img');
+      img.src = pendImg;
+      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+      ua.appendChild(img);
+    };
+    r.readAsDataURL(file);
+  };
+  window.AS = function () {
+    const vu = document.getElementById('f-venmo').value.trim();
+    const iu = document.getElementById('f-ig').value.trim();
+    const name = document.getElementById('f-name').value.trim();
+    if (!vu && !iu) { document.getElementById('f-venmo').focus(); return; }
+    slides.push({ img: pendImg, name: name || null, vu, iu });
+    cur = slides.length - 1; DX(); setTimeout(renderAll, 370);
+  };
+
+  slides = [
+    { img: phSVG('#4A7DB5'), name: 'Jane Smith',     vu: 'https://venmo.com/u/janesmith',  iu: 'https://instagram.com/janesmith'  },
+    { img: phSVG('#2D7A5F'), name: 'Robert Johnson', vu: 'https://venmo.com/u/robertj',     iu: 'https://instagram.com/robertj'    },
+  ];
+  renderAll();
+})();
+</script>
+</body>
+</html>
